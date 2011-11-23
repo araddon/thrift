@@ -1244,9 +1244,6 @@ void t_go_generator::generate_service(t_service* tservice) {
   }
 
   f_service_ <<
-                "import (" << endl <<
-    indent() << "        \"os\"" << endl <<
-    indent() << ")" << endl << endl <<
     render_fastbinary_includes();
 
   f_service_ << endl;
@@ -1487,7 +1484,7 @@ void t_go_generator::generate_service_client(t_service* tservice) {
     indent_down();
     f_service_ << 
       indent() << "}" << endl << endl <<
-      indent() << "func (p *" << serviceName << "Client) Send" << function_signature(*f_iter) << "(err os.Error) {" << endl;
+      indent() << "func (p *" << serviceName << "Client) Send" << function_signature(*f_iter) << "(err error) {" << endl;
     
     indent_up();
     
@@ -1536,7 +1533,7 @@ void t_go_generator::generate_service_client(t_service* tservice) {
         f_service_ << errs << ", ";
       }
       f_service_ << 
-        "err os.Error) {" << endl;
+        "err error) {" << endl;
       indent_up();
 
       // TODO(mcslee): Validate message reply here, seq ids etc.
@@ -1551,17 +1548,20 @@ void t_go_generator::generate_service_client(t_service* tservice) {
         indent() << "  iprot = p.ProtocolFactory.GetProtocol(p.Transport)" << endl <<
         indent() << "  p.InputProtocol = iprot" << endl <<
         indent() << "}" << endl <<
-        indent() << "_, mTypeId, seqId, err := iprot.ReadMessageBegin()" << endl <<
-        indent() << "if err != nil {" << endl <<
+        indent() << "_, mTypeId, seqId, er := iprot.ReadMessageBegin()" << endl <<
+        indent() << "if er != nil {" << endl <<
+        indent() << "  err = er" << endl <<
         indent() << "  return" << endl <<
         indent() << "}" << endl <<
         indent() << "if mTypeId == thrift.EXCEPTION {" << endl <<
         indent() << "  " << error << " := thrift.NewTApplicationExceptionDefault()" << endl <<
-        indent() << "  " << error2 << ", err := " << error << ".Read(iprot)" << endl <<
-        indent() << "  if err != nil {" << endl <<
+        indent() << "  " << error2 << ", er := " << error << ".Read(iprot)" << endl <<
+        indent() << "  if er != nil {" << endl <<
+        indent() << "    err = er" << endl <<
         indent() << "    return" << endl <<
         indent() << "  }" << endl <<
-        indent() << "  if err = iprot.ReadMessageEnd(); err != nil {" << endl <<
+        indent() << "  if er = iprot.ReadMessageEnd(); er != nil {" << endl <<
+        indent() << "    err = er" << endl <<
         indent() << "    return" << endl <<
         indent() << "  }" << endl <<
         indent() << "  err = " << error2 << endl <<
@@ -1681,7 +1681,7 @@ void t_go_generator::generate_service_remote(t_service* tservice) {
     indent() << "if len(urlString) > 0 {" << endl <<
     indent() << "  url, err := http.ParseURL(urlString)" << endl <<
     indent() << "  if err != nil {" << endl <<
-    indent() << "    fmt.Fprint(os.Stderr, \"Error parsing URL: \", err.String(), \"\\n\")" << endl <<
+    indent() << "    fmt.Fprint(os.Stderr, \"Error parsing URL: \", err.Error(), \"\\n\")" << endl <<
     indent() << "    flag.Usage()" << endl <<
     indent() << "  }" << endl <<
     indent() << "  host = url.Host" << endl <<
@@ -1691,19 +1691,19 @@ void t_go_generator::generate_service_remote(t_service* tservice) {
     indent() << "} else if useHttp {" << endl <<
     indent() << "  _, err := http.ParseURL(fmt.Sprint(\"http://\", host, \":\", port))" << endl <<
     indent() << "  if err != nil {" << endl <<
-    indent() << "    fmt.Fprint(os.Stderr, \"Error parsing URL: \", err.String(), \"\\n\")" << endl <<
+    indent() << "    fmt.Fprint(os.Stderr, \"Error parsing URL: \", err.Error(), \"\\n\")" << endl <<
     indent() << "    flag.Usage()" << endl <<
     indent() << "  }" << endl <<
     indent() << "}" << endl <<
     indent() << endl <<
     indent() << "cmd := flag.Arg(0)" << endl <<
-    indent() << "var err os.Error" << endl <<
+    indent() << "var err error" << endl <<
     indent() << "if useHttp {" << endl <<
     indent() << "  trans, err = thrift.NewTHttpClient(url.Raw)" << endl <<
     indent() << "} else {" << endl <<
     indent() << "  addr, err := net.ResolveTCPAddr(\"tcp\", fmt.Sprint(host, \":\", port))" << endl <<
     indent() << "  if err != nil {" << endl <<
-    indent() << "    fmt.Fprint(os.Stderr, \"Error resolving address\", err.String())" << endl <<
+    indent() << "    fmt.Fprint(os.Stderr, \"Error resolving address\", err.Error())" << endl <<
     indent() << "    os.Exit(1)" << endl <<
     indent() << "  }" << endl <<
     indent() << "  trans, err = thrift.NewTNonblockingSocketAddr(addr)" << endl <<
@@ -1712,7 +1712,7 @@ void t_go_generator::generate_service_remote(t_service* tservice) {
     indent() << "  }" << endl <<
     indent() << "}" << endl <<
     indent() << "if err != nil {" << endl <<
-    indent() << "  fmt.Fprint(os.Stderr, \"Error creating transport\", err.String())" << endl <<
+    indent() << "  fmt.Fprint(os.Stderr, \"Error creating transport\", err.Error())" << endl <<
     indent() << "  os.Exit(1)" << endl <<
     indent() << "}" << endl <<
     indent() << "defer trans.Close()" << endl <<
@@ -1737,7 +1737,7 @@ void t_go_generator::generate_service_remote(t_service* tservice) {
     indent() << "}" << endl <<
     indent() << "client := " << package_name_ << ".New" << publicize(service_name_) << "ClientFactory(trans, protocolFactory)" << endl <<
     indent() << "if err = trans.Open(); err != nil {" << endl <<
-    indent() << "  fmt.Fprint(os.Stderr, \"Error opening socket to \", host, \":\", port, \" \", err.String())" << endl <<
+    indent() << "  fmt.Fprint(os.Stderr, \"Error opening socket to \", host, \":\", port, \" \", err.Error())" << endl <<
     indent() << "  os.Exit(1)" << endl <<
     indent() << "}" << endl <<
     indent() << endl <<
@@ -2116,7 +2116,7 @@ void t_go_generator::generate_process_function(t_service* tservice,
     indent() << "args := New" << argsname << "()" << endl <<
     indent() << "if err = args.Read(iprot); err != nil {" << endl <<
     indent() << "  iprot.ReadMessageEnd()" << endl <<
-    indent() << "  x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.String())" << endl <<
+    indent() << "  x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())" << endl <<
     indent() << "  oprot.WriteMessageBegin(\"" << escape_string(tfunction->get_name()) << "\", thrift.EXCEPTION, seqId)" << endl <<
     indent() << "  x.Write(oprot)" << endl <<
     indent() << "  oprot.WriteMessageEnd()" << endl <<
@@ -2156,7 +2156,7 @@ void t_go_generator::generate_process_function(t_service* tservice,
     f_service_ << "args." << publicize(variable_name_to_go_name((*f_iter)->get_name()));
   }
   f_service_ << "); err != nil {" << endl <<
-    indent() << "  x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, \"Internal error processing " << escape_string(tfunction->get_name()) << ": \" + err.String())" << endl <<
+    indent() << "  x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, \"Internal error processing " << escape_string(tfunction->get_name()) << ": \" + err.Error())" << endl <<
     indent() << "  oprot.WriteMessageBegin(\"" << escape_string(tfunction->get_name()) << "\", thrift.EXCEPTION, seqId)" << endl <<
     indent() << "  x.Write(oprot)" << endl <<
     indent() << "  oprot.WriteMessageEnd()" << endl <<
@@ -2185,7 +2185,7 @@ void t_go_generator::generate_process_function(t_service* tservice,
   /*
   indent(f_service_) <<
       "func (p *" << publicize(tservice->get_name()) << "Client) WriteResultsSuccess" << publicize(tfunction->get_name()) <<
-      "(success bool, result " << publicize(tfunction->get_name()) << "Result, seqid int32, oprot thrift.TProtocol) (err os.Error) {" << endl;
+      "(success bool, result " << publicize(tfunction->get_name()) << "Result, seqid int32, oprot thrift.TProtocol) (err error) {" << endl;
   indent_up();
   f_service_ <<
     indent() << "result.Success = success" << endl <<
@@ -2203,7 +2203,7 @@ void t_go_generator::generate_process_function(t_service* tservice,
   if (!tfunction->is_oneway() && xceptions.size() > 0) {
     indent(f_service_) <<
       "func (p *" << publicize(tservice->get_name()) << "Client) WriteResultsException" << publicize(tfunction->get_name()) <<
-      "(error *" << publicize(tfunction->get_name()) << ", result *, seqid, oprot) (err os.Error) {" << endl;
+      "(error *" << publicize(tfunction->get_name()) << ", result *, seqid, oprot) (err error) {" << endl;
     indent_up();
 
     // Kinda absurd
@@ -2886,7 +2886,7 @@ string t_go_generator::function_signature_if(t_function* tfunction,
       signature += ", ";
   }
   if(addOsError) {
-    signature += "err os.Error";
+    signature += "err error";
   }
   signature += ")";
   return signature;
