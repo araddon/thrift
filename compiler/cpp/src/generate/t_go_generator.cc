@@ -1176,18 +1176,31 @@ void t_go_generator::generate_go_struct_writer(ofstream& out,
   out <<
     indent() << "}" << endl << endl;
   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+    t_field* tfield = (*f_iter);
     fieldId = (*f_iter)->get_key();
     field_name = (*f_iter)->get_name();
     escape_field_name = escape_string(field_name);
+    t_type* type = get_true_type(tfield->get_type());
+    t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
+    string name("p." + publicize(variable_name_to_go_name(tfield->get_name())));
+
     out <<
       indent() << "func (p *" << tstruct_name << ") WriteField" << fieldId << "(oprot thrift.TProtocol) (err thrift.TProtocolException) {" << endl;
     indent_up();
-    // Write field header
-    if (can_be_nil((*f_iter)->get_type())) {
-      out <<
-        indent() << "if p." << publicize(variable_name_to_go_name(field_name)) << " != nil {" << endl;
-      indent_up();
+
+    // Write field header:   don't write this field if not required and value is nullish
+    if (tfield->get_req() != t_field::T_REQUIRED && tbase == t_base_type::TYPE_STRING) {
+      out << indent() <<  "if len(" << name << ") < 1 { return nil}" << endl;
+    } else if (tfield->get_req() != t_field::T_REQUIRED && (tbase == t_base_type::TYPE_I16 ||
+              tbase == t_base_type::TYPE_I32 || tbase == t_base_type::TYPE_I64)) {
+      out << indent() <<  "if int64(" << name << ") == 0 { return nil}" << endl;
     }
+
+    //if (can_be_nil((*f_iter)->get_type())) {
+    //  out <<
+    //    indent() << "if p." << publicize(variable_name_to_go_name(field_name)) << " != nil {" << endl;
+    //  indent_up();
+    //}
     out <<
       indent() << "err = oprot.WriteFieldBegin(\"" <<
                             escape_field_name << "\", " <<
@@ -1209,11 +1222,11 @@ void t_go_generator::generate_go_struct_writer(ofstream& out,
                             escape_field_name << "\", " <<
                             "p.ThriftName(), err); }" << endl;
 
-    if (can_be_nil((*f_iter)->get_type())) {
-      indent_down();
-      out <<
-        indent() << "}" << endl;
-    }
+    //if (can_be_nil((*f_iter)->get_type())) {
+    //  indent_down();
+    //  out <<
+    //    indent() << "}" << endl;
+    //}
     indent_down();
     out <<
       indent() << "  return err" << endl <<
@@ -2526,12 +2539,17 @@ void t_go_generator::generate_serialize_field(ofstream &out,
                                                string prefix,
                                                string err) {
   t_type* type = get_true_type(tfield->get_type());
+  t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
   string name(prefix + publicize(variable_name_to_go_name(tfield->get_name())));
 
   // Do nothing for void types
   if (type->is_void()) {
     throw "CANNOT GENERATE SERIALIZE CODE FOR void TYPE: " + name;
   }
+
+  //if (tfield->get_req() != t_field::T_REQUIRED && tbase == t_base_type::TYPE_STRING) {
+  //  out << indent() <<  "if len(" << name << ") < 1 { return nil}" << endl;
+  //}
 
   if (type->is_struct() || type->is_xception()) {
     generate_serialize_struct(out,
@@ -2549,7 +2567,7 @@ void t_go_generator::generate_serialize_field(ofstream &out,
       err << " = oprot.";
 
     if (type->is_base_type()) {
-      t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
+      
       switch (tbase) {
       case t_base_type::TYPE_VOID:
         throw
